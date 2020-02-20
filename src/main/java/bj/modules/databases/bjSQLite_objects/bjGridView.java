@@ -1,4 +1,4 @@
-package bj.databases.controls;
+package bj.modules.databases.bjSQLite_objects;
 
 import android.content.Context;
 import android.util.AttributeSet;
@@ -18,7 +18,7 @@ import org.json.JSONObject;
 import java.util.Arrays;
 import java.util.Comparator;
 
-import bj.databases.bjSQLiteDatabase;
+import bj.modules.databases.bjSQLiteDatabase;
 import bj.sqlite.R;
 
 

@@ -1,4 +1,4 @@
-package bj.databases;
+package bj.modules.databases;
 
 import android.content.Context;
 import android.database.Cursor;
@@ -12,59 +12,117 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import bj.modules.bj_file;
+import bj.modules.bj_permission;
+
 public class bjSQLiteDatabase {
 
+	public static interface OnDataBaseCreate {
+		// you can define any parameter as per your requirement
+		public void OnCreate(String dataBasePath,bjSQLiteDatabase bjSQLiteDatabase);
+		public void OnError(String errorDesc);
+		public void OnDo(boolean success,String message);
+
+	}
+	private OnDataBaseCreate mOnDataBaseCreate;
 	private static final String TAG ="bjSQLiteDatabase" ;
 	public static String  SDK_DIR= Environment.getExternalStorageDirectory().getAbsolutePath();
 	private  String APP_DIR;
 	private String DataBaseName;
 	private Context context;
 
-	private static final boolean replaceFile=false	;
 
-	public bjSQLiteDatabase(Context context, String databaseFolderName, String dataBaseName, String CallFrom){
+
+	public bjSQLiteDatabase(Context context, String databaseFolderName, String dataBaseName,boolean replaceDatabaseFile,OnDataBaseCreate onDataBaseCreate){
+		this.mOnDataBaseCreate=onDataBaseCreate;
 		APP_DIR=SDK_DIR+"/"+databaseFolderName+"/";
 		DataBaseName=dataBaseName;
-		setDataBase(CallFrom);
+		this.context=context;
+		setDataBase(replaceDatabaseFile);
+
 
 	}
-	private void setDataBase( String CallFrom) {
-		this.context=context;
+
+	private void setDataBase(final boolean replaceDatabaseFile ) {
+
 		//Log.e(databaseTAG, " Call From:"+CallFrom);
-		File file=new File( APP_DIR);
-		File file1=new File(APP_DIR+DataBaseName);
-		if(!file.exists()){
-			try{
-				file.mkdirs();
-				file.createNewFile();
+		final bj_file file=new bj_file( APP_DIR,this.context);
+		final Context finalContext=this.context;
+		bj_file.bj_getPermission(this.context, new bj_permission.OnGetPermissionListener() {
+					@Override
+					public void onPermissionProcesComplated(String PermissionNeeded, Boolean HavePermission) {
+						if (HavePermission){
+							bj_file file1 = new bj_file(APP_DIR + DataBaseName, finalContext);
+							if(!file.exists()){
+								try{
+
+									file.mkdirs();
+									file.createNewFile();
 
 
-			}catch(IOException e){
-				//Log.e(databaseTAG, " create Folder error:"+ e.getMessage());
-				e.printStackTrace();
-			}
-		}else {
-			if (replaceFile){
 
-				try{
-					file1.delete();
-					//Log.e(databaseTAG, " delete last:"+ file1.exists());
-					copyFromAssets(context.getAssets().open(DataBaseName),
-							new FileOutputStream(APP_DIR+DataBaseName));
-					//Log.e(databaseTAG, " new File exist:"+ file1.exists());
-				}catch (IOException e){
-					//Log.e(databaseTAG, " Copy database File error:"+ e.getMessage());
-				}
-			}
+								}catch(IOException e){
+									//Log.e(databaseTAG, " create Folder error:"+ e.getMessage());
+									e.printStackTrace();
+									if (mOnDataBaseCreate!=null){
+										mOnDataBaseCreate.OnDo(false,"error in Create Folder:"+ e.getMessage());
+										mOnDataBaseCreate.OnError("error in Create Folder:"+ e.getMessage());
 
-		}
+									}
+								}
+								try{
+									copyFromAssets(context.getAssets().open(DataBaseName),
+											new FileOutputStream(APP_DIR+DataBaseName));
+									//Log.e(databaseTAG, " new File exist:"+ file1.exists());
+									if (mOnDataBaseCreate!=null){
+										mOnDataBaseCreate.OnDo(true,"The Database File Create Success.");
+										mOnDataBaseCreate.OnCreate(APP_DIR+DataBaseName,bjSQLiteDatabase.this);
+									}
+								}catch (IOException e){
+									if (mOnDataBaseCreate!=null){
+										mOnDataBaseCreate.OnDo(false,"error in Copy file from Assests:"+ e.getMessage());
+										mOnDataBaseCreate.OnError("error in Copy file from Assests:"+ e.getMessage());
+									}
+								}
+							}else {
+								if (replaceDatabaseFile){
 
-		//Log.e(databaseTAG,"data base file exist: "+(new File(APP_DIR+"/pushNoteAdmin.sqlite")).exists());
+									try{
+										file1.delete();
+										//Log.e(databaseTAG, " delete last:"+ file1.exists());
+										copyFromAssets(context.getAssets().open(DataBaseName),
+												new FileOutputStream(APP_DIR+DataBaseName));
+										//Log.e(databaseTAG, " new File exist:"+ file1.exists());
+										if (mOnDataBaseCreate!=null){
+											mOnDataBaseCreate.OnDo(true,"The Database File Replace Success.");
+											mOnDataBaseCreate.OnCreate(APP_DIR+DataBaseName,bjSQLiteDatabase.this);
+										}
+									}catch (IOException e){
+										if (mOnDataBaseCreate!=null){
+											mOnDataBaseCreate.OnDo(false,"error in Copy file from Assests:"+ e.getMessage());
+											mOnDataBaseCreate.OnError("error in Copy file from Assests:"+ e.getMessage());
+										}
+									}
+								}else {
+									if (mOnDataBaseCreate!=null){
+										mOnDataBaseCreate.OnDo(true,"The Database File Exist.");
+										mOnDataBaseCreate.OnCreate(APP_DIR+DataBaseName,bjSQLiteDatabase.this);
+									}
+								}
+
+							}
+						}else {
+							if (mOnDataBaseCreate!=null){
+								mOnDataBaseCreate.OnDo(false,"Not getting permission");
+								mOnDataBaseCreate.OnError("Not getting permission");
+							}
+						}
+					}
+				});
 
 
 
